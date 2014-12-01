@@ -75,9 +75,9 @@ class Sequence:
 
   def remove(self,wordString, wordDict):
     self.denom -= wordDict[wordString].val
-    self.val = self.num/(abs(self.denom) if (self.denom>0.5) else 0.5)
     self.seq.remove(wordString)
     self.num = len(self.seq)
+    self.val = self.num/(abs(self.denom) if (self.denom>0.5) else 0.5)
     return wordDict[wordString]
 
   def clear(self):
@@ -117,11 +117,12 @@ class WordSequencer:
           print self.mySeq.seq[i-1], self.mySeq.seq[i]
           raise Exception('WARNING, SEQUENCE FAILS PATTERN')
 
-  def growSequence(self, myFilterList):
+  def growSequence(self, myFilterList, alpha = 1.0, beta = 1.0, veto = True, highQual = True):
     grow = True
     while grow:
-      myFilterList.sort(key=lambda x:abs((x.val-self.mySeq.denom)+1.0*x.connectivity),reverse=True)
+      myFilterList.sort(key=lambda x:beta*1/(abs((x.val-self.mySeq.denom)+0.0000001)+alpha*x.connectivity),reverse=highQual)
       for word in myFilterList:
+        if veto and word.word[-1] in ['q','x']: continue
         #print word.word, self.mySeq.seq[-1]
         if word.word[0]==self.mySeq.seq[-1][-1]:
           newWord = myFilterList.pop(myFilterList.index(word))
@@ -141,12 +142,13 @@ class WordSequencer:
       else:
         prune = False
 
-  def growSequenceMore(self, myFilterList, alpha=1.0):
+  def growSequenceMore(self, myFilterList, alpha=1.0, beta = 1.0, veto = True, highQual = True):
     grow = True
     while grow:
-      myFilterList.sort(key=lambda x:abs((x.val-self.mySeq.denom)+alpha*x.connectivity),reverse=True)
+      myFilterList.sort(key=lambda x:beta*1/(abs((x.val-self.mySeq.denom)+0.0000001)+alpha*x.connectivity),reverse=highQual)
       for i,wordString in enumerate(self.mySeq.seq[:]):
         for word in myFilterList:
+          if veto and word.word[-1] in ['q','x']: continue
           if ((i == 0 and word.word[-1]==wordString[0]) or (i!=0 and word.word[-1]==self.mySeq.seq[i][0] and word.word[0]==self.mySeq.seq[i-1][-1])):
             #print word.word[-1], self.mySeq.seq[i][0]
             newWord = myFilterList.pop(myFilterList.index(word))
@@ -162,19 +164,20 @@ class WordSequencer:
     filterList = [i for i in filterList if i.word != firstWordString]
     self.mySeq.append(firstWord)
 
-    self.growSequence(filterList)
+    self.growSequence(filterList, beta = 1, alpha = 50, highQual = False)
 
-    self.pruneSequence(filterList)
+    #self.pruneSequence(filterList)
 
-    self.growSequenceMore(filterList)
+    self.growSequenceMore(filterList, beta = 1, alpha = 1, highQual = False)
 
-    self.growSequence(filterList)
+    self.growSequence(filterList, alpha = 50, highQual = False)
 
-    self.growSequenceMore(filterList)
+    self.growSequenceMore(filterList, alpha = 1, highQual = False)
 
-    self.pruneSequence(filterList)
+    #self.pruneSequence(filterList)
+    self.growSequence(filterList, beta = 10, alpha = 1, veto = False, highQual = False)
 
-    self.growSequenceMore(filterList, alpha = 10.0)
+    self.growSequenceMore(filterList, beta = 10, alpha = 1, veto = False, highQual = False)
 
     self.pruneSequence(filterList)
     print self.mySeq.val, self.mySeq.denom, self.mySeq.num
